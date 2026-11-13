@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADScope · Instrumento de testeo (Certamen 2)</title>
+<style>
+  :root { --azul:#1f4e79; --azul2:#2e75b6; --fondo:#f4f7fa; --borde:#d4dde8; --ok:#2e7d32; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--fondo); color:#1c2733; margin:0; padding:24px; }
+  .caja { max-width:760px; margin:0 auto; background:#fff; border:1px solid var(--borde); border-radius:12px; padding:24px 28px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+  h1 { font-size:1.4rem; color:var(--azul); margin-top:0; }
+  h2 { font-size:1.05rem; color:var(--azul); border-bottom:1px solid var(--borde); padding-bottom:6px; }
+  section { display:none; }
+  section.activa { display:block; }
+  .pasos { font-size:.8rem; color:#5a6b7d; margin-bottom:14px; }
+  label { display:block; margin:10px 0 4px; font-weight:600; font-size:.92rem; }
+  input[type=text], select { width:100%; padding:8px 10px; border:1px solid var(--borde); border-radius:8px; font-size:.95rem; }
+  .consentimiento { background:#f2f7fc; border:1px solid var(--borde); border-radius:10px; padding:12px 14px; font-size:.9rem; margin:10px 0; }
+  button { background:var(--azul2); color:#fff; border:0; border-radius:8px; padding:10px 18px; font-size:.95rem; cursor:pointer; margin-top:14px; }
+  button:disabled { background:#a9bfd4; cursor:not-allowed; }
+  button.sec { background:#fff; color:var(--azul2); border:1px solid var(--azul2); }
+  .opciones { display:flex; gap:10px; flex-wrap:wrap; margin:6px 0; }
+  .opciones label { font-weight:400; display:flex; gap:6px; align-items:center; border:1px solid var(--borde); border-radius:8px; padding:8px 12px; cursor:pointer; }
+  .opciones label:hover { border-color:var(--azul2); }
+  .timer { font-size:1.6rem; font-weight:700; color:var(--azul); font-variant-numeric:tabular-nums; margin:8px 0; }
+  .caso { border:1px solid var(--borde); border-radius:10px; padding:14px 16px; margin:12px 0; background:#fbfcfe; }
+  .likert { display:flex; gap:0; margin:8px 0 14px; }
+  .likert label { border:1px solid var(--borde); border-left-width:0; padding:8px 0; text-align:center; flex:1; margin:0; cursor:pointer; font-weight:600; }
+  .likert label:first-child { border-left-width:1px; border-radius:8px 0 0 8px; }
+  .likert label:last-child { border-radius:0 8px 8px 0; }
+  .likert input { display:none; }
+  .likert input:checked + span { color:var(--azul2); }
+  .likert label:has(input:checked) { background:#e8f1fa; border-color:var(--azul2); }
+  textarea { width:100%; min-height:70px; border:1px solid var(--borde); border-radius:8px; padding:8px 10px; font-family:inherit; font-size:.95rem; }
+  .resumen { background:#eef7ee; border:1px solid #c9e4c9; border-radius:10px; padding:12px 14px; font-size:.9rem; margin-top:12px; white-space:pre-wrap; }
+  .error { color:#b3261e; font-size:.85rem; margin-top:6px; }
+  .ok { color:var(--ok); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="caja">
+  <h1>ADScope · Testeo con usuarios — Instrumento digital</h1>
+  <p class="pasos">Uso académico · los datos se guardan SOLO en esta laptop y se exportan como JSON anónimo (P0X). No se envían a ningún servidor.</p>
+
+  <!-- 0. Consentimiento -->
+  <section class="activa" id="s0">
+    <h2>0 · Consentimiento informado</h2>
+    <div class="consentimiento">
+      Acepto participar voluntariamente en una prueba de uso de la aplicación ADScope con fines académicos. Entiendo que:
+      (1) no se evaluará mi desempeño profesional; (2) mis datos se registrarán de forma anonimizada (P01, P02…);
+      (3) no se recopilarán datos personales sensibles; (4) puedo retirarme en cualquier momento sin consecuencias;
+      (5) los resultados se usarán solo en el contexto del curso y del proyecto. La herramienta está en desarrollo y NO es un dispositivo médico.
+    </div>
+    <label><input type="checkbox" id="consent"> Declaro haber leído y acepto participar (actúa como firma digital).</label>
+    <label>ID de participante (P01–P05)</label>
+    <input type="text" id="pid" placeholder="P01">
+    <label>Fecha y hora de la sesión (auto)</label>
+    <input type="text" id="fecha" readonly>
+    <p class="error" id="err0"></p>
+    <button onclick="iniciar()">Iniciar sesión</button>
+  </section>
+
+  <!-- 1. Tarea por caso -->
+  <section id="s1">
+    <h2>1 · Tarea: revisar 3 casos</h2>
+    <p class="pasos">Instrucciones estándar (mismas para todos): "En ADScope verás una imagen histológica, un heatmap (dónde miró la IA) y 5 focos. Revisa el caso a tu ritmo, decide el diagnóstico y di si confirmas o corriges la sugerencia de la IA. No hay ayuda durante la tarea."</p>
+    <div id="casos"></div>
+    <p class="error" id="err1"></p>
+    <button id="btnSiguiente1" disabled onclick="irLikert()">Continuar a la encuesta</button>
+  </section>
+
+  <!-- 2. Likert -->
+  <section id="s2">
+    <h2>2 · Encuesta de percepción (1 = muy en desacuerdo · 5 = muy de acuerdo)</h2>
+    <div id="likert"></div>
+    <h2>Preguntas abiertas</h2>
+    <label>¿Qué fue lo más difícil de la tarea?</label>
+    <textarea id="abierta1"></textarea>
+    <label>¿Qué mejorarías de la herramienta?</label>
+    <textarea id="abierta2"></textarea>
+    <p class="error" id="err2"></p>
+    <button id="btnSiguiente2" onclick="irFin()">Ver resumen y exportar</button>
+  </section>
+
+  <!-- 3. Resumen / exportar -->
+  <section id="s3">
+    <h2>3 · Resumen y exportación</h2>
+    <div class="resumen" id="resumen"></div>
+    <button onclick="exportar()">Descargar JSON (P0X.json)</button>
+    <button class="sec" onclick="copiar()">Copiar al portapapeles</button>
+    <p class="ok" id="msgOk"></p>
+    <button class="sec" onclick="nuevaSesion()">Nueva sesión (siguiente participante)</button>
+  </section>
+</div>
+
+<script>
+const ITEMS_LIKERT = [
+  "El heatmap me ayudó a entender en qué se fijó la IA",
+  "Los 5 focos de atención fueron claros y útiles",
+  "Me sentí confiado/a usando la herramienta sin ayuda previa",
+  "La herramienta fue fácil de usar",
+  "Usaría ADScope como apoyo en mi estudio de histología"
+];
+const CASOS = ["benigno","adenocarcinoma","escamoso"]; // orden aleatorizado por participante
+const estado = { pid:"", consent:false, fecha:"", orden:[], casos:{}, likert:{}, abiertas:["",""] };
+
+function iniciar(){
+  const c = document.getElementById("consent").checked;
+  const pid = document.getElementById("pid").value.trim().toUpperCase();
+  if(!c){ document.getElementById("err0").textContent="Debe aceptar el consentimiento para continuar."; return; }
+  if(!/^P0[1-9]$/.test(pid)){ document.getElementById("err0").textContent="Ingrese un ID válido (P01–P09)."; return; }
+  estado.consent = true; estado.pid = pid;
+  estado.fecha = new Date().toISOString();
+  estado.orden = [...CASOS].sort(() => Math.random() - 0.5);
+  construirCasos();
+  document.getElementById("s0").classList.remove("activa");
+  document.getElementById("s1").classList.add("activa");
+  construirLikert();
+}
+function construirCasos(){
+  const div = document.getElementById("casos"); div.innerHTML="";
+  estado.orden.forEach((clase, i) => {
+    const caso = document.createElement("div"); caso.className="caso"; caso.id="caso-"+i;
+    caso.innerHTML = `<h3>Caso ${i+1} de 3</h3>
+      <button id="btnT-${i}" onclick="empezarTiempo(${i})">Iniciar revisión (arranca el cronómetro)</button>
+      <button class="sec" id="btnF-${i}" onclick="pararTiempo(${i})" disabled>Terminé mi revisión</button>
+      <div class="timer" id="t-${i}">—</div>
+      <label>Mi diagnóstico para este caso:</label>
+      <div class="opciones">
+        <label><input type="radio" name="dx-${i}" value="benigno" onchange="casoDx(${i},'benigno')"> Benigno</label>
+        <label><input type="radio" name="dx-${i}" value="adenocarcinoma" onchange="casoDx(${i},'adenocarcinoma')"> Adenocarcinoma</label>
+        <label><input type="radio" name="dx-${i}" value="escamoso" onchange="casoDx(${i},'escamoso')"> Escamoso</label>
+      </div>
+      <label>¿Confirmo la sugerencia de la IA?</label>
+      <div class="opciones">
+        <label><input type="radio" name="ia-${i}" value="si" onchange="casoIa(${i},'si')"> Sí, la confirmo</label>
+        <label><input type="radio" name="ia-${i}" value="no" onchange="casoIa(${i},'no')"> No, la corrijo</label>
+      </div>`;
+    div.appendChild(caso);
+    estado.casos[i] = { clase_real:clase, inicio:null, fin:null, dx:null, ia:null };
+  });
+}
+function empezarTiempo(i){
+  estado.casos[i].inicio = Date.now();
+  document.getElementById("btnT-"+i).disabled = true;
+  document.getElementById("btnF-"+i).disabled = false;
+  const int = setInterval(()=>{
+    if(estado.casos[i].fin){ clearInterval(int); return; }
+    const s = ((Date.now()-estado.casos[i].inicio)/1000).toFixed(1);
+    document.getElementById("t-"+i).textContent = s+" s";
+  }, 100);
+}
+function pararTiempo(i){
+  if(!estado.casos[i].inicio) return;
+  estado.casos[i].fin = Date.now();
+  document.getElementById("btnF-"+i).disabled = true;
+  const s = ((estado.casos[i].fin - estado.casos[i].inicio)/1000).toFixed(1);
+  document.getElementById("t-"+i).textContent = s+" s";
+  actualizarBtn();
+}
+function casoDx(i,v){ estado.casos[i].dx = v; actualizarBtn(); }
+function casoIa(i,v){ estado.casos[i].ia = v; actualizarBtn(); }
+function actualizarBtn(){
+  const completos = estado.orden.every((_,i)=> estado.casos[i].fin && estado.casos[i].dx && estado.casos[i].ia);
+  document.getElementById("btnSiguiente1").disabled = !completos;
+}
+function construirLikert(){
+  const div = document.getElementById("likert"); div.innerHTML="";
+  ITEMS_LIKERT.forEach((texto, idx)=>{
+    const fila = document.createElement("div");
+    fila.innerHTML = `<label style="font-weight:400">${texto}</label><div class="likert" id="lk-${idx}">`+
+      [1,2,3,4,5].map(v=>`<label><input type="radio" name="lk-${idx}" value="${v}" onchange="estado.likert[${idx}]=${v}"><span>${v}</span></label>`).join("")+`</div>`;
+    div.appendChild(fila);
+  });
+}
+function irLikert(){
+  if(document.getElementById("btnSiguiente1").disabled){ document.getElementById("err1").textContent="Complete los 3 casos (tiempo, diagnóstico y confirmación/corrección)."; return; }
+  document.getElementById("s1").classList.remove("activa");
+  document.getElementById("s2").classList.add("activa");
+}
+function irFin(){
+  if(Object.keys(estado.likert).length < ITEMS_LIKERT.length){ document.getElementById("err2").textContent="Responda los 5 ítems Likert."; return; }
+  estado.abiertas = [document.getElementById("abierta1").value.trim(), document.getElementById("abierta2").value.trim()];
+  const r = document.getElementById("resumen");
+  r.textContent = JSON.stringify(exportarJson(), null, 2);
+  document.getElementById("s2").classList.remove("activa");
+  document.getElementById("s3").classList.add("activa");
+}
+function exportarJson(){
+  return {
+    instrumento:"ADScope testeo Certamen 2",
+    participante:estado.pid, consentimiento:estado.consent, fecha:estado.fecha,
+    orden_casos:estado.orden,
+    casos:estado.orden.map((_,i)=>({
+      clase_real:estado.casos[i].clase_real,
+      tiempo_s:estado.casos[i].fin ? ((estado.casos[i].fin-estado.casos[i].inicio)/1000).toFixed(1) : null,
+      diagnostico:estado.casos[i].dx, confirmo_ia:estado.casos[i].ia,
+      acierto:estado.casos[i].dx === estado.casos[i].clase_real
+    })),
+    likert:ITEMS_LIKERT.map((t,idx)=>({item:t, valor:estado.likert[idx] ?? null})),
+    abiertas:estado.abiertas
+  };
+}
+function exportar(){
+  const blob = new Blob([JSON.stringify(exportarJson(),null,2)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = estado.pid+".json";
+  a.click();
+  document.getElementById("msgOk").textContent = "JSON descargado. Guárdalo en la carpeta testeo/resultados/.";
+}
+function copiar(){
+  navigator.clipboard.writeText(JSON.stringify(exportarJson(),null,2)).then(()=>{
+    document.getElementById("msgOk").textContent = "Copiado al portapapeles.";
+  });
+}
+function nuevaSesion(){
+  if(!confirm("¿Iniciar sesión para el siguiente participante? Se descargará el JSON actual si no lo has guardado.")) return;
+  location.reload();
+}
+document.getElementById("fecha").value = new Date().toLocaleString("es-CL");
+</script>
+</body>
+</html>

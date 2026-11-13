@@ -1,0 +1,14 @@
+# Fuente cruda del dataset (descargable de nuevo con descargar_dataset.py)
+dataset/*.parquet
+
+# Cachés generados por los scripts
+evaluacion/embeddings/
+evaluacion/model/
+__pycache__/
+*.pyc
+
+# Resultados del testeo real (anónimos, pero se conservan fuera del repo)
+testeo/resultados/
+
+# Sistema
+.DS_Store

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADScope · Estación de trabajo</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <div class="logo" onclick="go('visor')"><img src="logo.jpg" alt="ADScope" style="height:38px; width:auto; background:#fff; border-radius:10px; padding:4px 8px;"> <span>ADScope <small>Estación de trabajo · asistente XAI para histología</small></span></div>
+    <nav>
+      <a data-nav="visor" class="active">Visor</a>
+      <a data-nav="dataset">Dataset</a>
+      <a data-nav="modelo">Modelo</a>
+      <a data-nav="teoria">Fundamento teórico</a>
+      <a data-nav="arquitectura">Arquitectura</a>
+      <a data-nav="api">API</a>
+    </nav>
+    <span class="badge b-amber" id="apiStatus">conectando…</span>
+    <button class="btn btn-primary btn-sm" id="authBtn">🔐 Iniciar sesión</button>
+    <span class="hidden" id="userChip" style="display:inline-flex; align-items:center; gap:8px;">
+      <span class="badge b-green" id="userBadge"></span>
+      <button class="btn btn-sm" id="passBtn" title="Cambiar mi contraseña">🔑</button>
+      <button class="btn btn-sm" id="logoutBtn" title="Cerrar sesión">Salir</button>
+    </span>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ==================== VISOR ==================== -->
+  <section class="section active" id="section-visor">
+    <div class="workstation">
+      <!-- Worklist -->
+      <div class="worklist">
+        <div class="worklist-head">
+          <b style="font-size:13px;">Casos</b>
+          <button class="btn btn-sm btn-primary" id="btnUpload">+ Subir</button>
+          <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.bmp,.tif,.tiff,.svs,.ndpi,.mrxs" multiple class="hidden">
+        </div>
+        <div class="dropzone small" id="dropzone" style="margin:8px;">
+          o arrastra imágenes aquí (PNG/JPG/TIFF · WSI: SVS/NDPI/MRXS)
+        </div>
+        <div class="worklist-items" id="worklist">
+          <div class="viewer-empty" style="min-height:120px;">Sin casos aún.</div>
+        </div>
+      </div>
+
+      <!-- Viewer -->
+      <div class="viewer-wrap">
+        <div class="viewer" id="viewer">
+          <div class="viewer-empty" id="viewerEmpty">
+            Selecciona un caso de la lista o sube una imagen.<br>
+            <small>El heatmap y los 5 focos se calculan con el modelo local.</small>
+          </div>
+          <img class="base hidden" id="baseImg" alt="imagen histológica">
+          <img class="overlay hidden" id="heatImg" alt="heatmap">
+          <div class="foci-layer" id="fociLayer"></div>
+        </div>
+        <div class="viewer-toolbar">
+          <button class="btn btn-sm" id="btnHeat">🔥 Ocultar heatmap</button>
+          <button class="btn btn-sm" id="btnFoci">🎯 Ocultar focos</button>
+          <button class="btn btn-sm" id="btnReanalyze" title="Re-calcular el análisis">🔄 Re-analizar</button>
+          <span class="badge b-blue hidden" id="staleBadge">análisis previo al último re-entrenamiento</span>
+        </div>
+      </div>
+
+      <!-- Side -->
+      <div class="side">
+        <div class="kpi">
+          <span>Predicción del modelo</span>
+          <b id="aiLabel" style="font-size:17px; color:var(--primary-light);">—</b>
+          <p style="font-size:12px; color:var(--dim);" id="aiProb"></p>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head" style="font-size:13px;">🎯 5 focos <span class="badge b-amber" id="fociCount">0</span></div>
+          <ul class="foci-list" id="fociList" style="padding:6px 14px;">
+            <li style="color:var(--dim);">Sin análisis.</li>
+          </ul>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head" style="font-size:13px;">🩺 Registro del patólogo</div>
+          <div style="padding:14px;">
+            <label class="f">Diagnóstico final</label>
+            <select class="form-control" id="finalLabel">
+              <option value="Adenocarcinoma">Adenocarcinoma</option>
+              <option value="Carcinoma escamoso">Carcinoma escamoso</option>
+              <option value="Tejido normal">Tejido normal</option>
+              <option value="Otro">Otro</option>
+            </select>
+            <label class="f">Evaluador</label>
+            <input class="form-control" id="evaluator" placeholder="Nombre del evaluador">
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primary" id="btnConfirm" style="flex:1;">✅ Confirmar IA</button>
+              <button class="btn" id="btnCorrect" style="flex:1; color:var(--warning); border-color:var(--warning);">✏️ Corregir</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-head" style="font-size:13px;">🗂️ Etiquetas de este caso</div>
+          <div id="caseLabels" style="padding:10px 14px; font-size:12px; color:var(--dim);">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== DATASET ==================== -->
+  <section class="section" id="section-dataset">
+    <div class="panel">
+      <div class="panel-head">📚 Dataset de patólogos <span class="badge b-green">human-in-the-loop</span></div>
+      <div class="panel-body">
+        <div class="grid-2" style="margin-bottom:14px;">
+          <div class="kpi"><span>Muestras etiquetadas</span><b id="dsTotal" style="color:var(--primary-light);">0</b></div>
+          <div class="kpi"><span>Concordancia IA ↔ Patólogo</span><b id="dsConc" style="color:var(--success);">—</b></div>
+          <div class="kpi"><span>Correcciones</span><b id="dsCorr" style="color:var(--warning);">0</b></div>
+          <div class="kpi"><span>Persistencia</span><b style="font-size:14px;">data/dataset.json</b><p style="font-size:12px; color:var(--dim);">imágenes en data/uploads/ · análisis en data/analysis/</p></div>
+        </div>
+        <div class="filter-row">
+          <button class="btn btn-sm" data-filter="all">Todas</button>
+          <button class="btn btn-sm" data-filter="agreed">✓ Concordantes</button>
+          <button class="btn btn-sm" data-filter="corrected">✏️ Corregidas</button>
+          <select class="form-control" id="filterClass" style="width:auto; margin:0;">
+            <option value="">Todas las clases</option>
+            <option>Adenocarcinoma</option>
+            <option>Carcinoma escamoso</option>
+            <option>Tejido normal</option>
+            <option>Otro</option>
+          </select>
+          <a class="btn btn-sm btn-primary" href="/api/dataset/export.json" download id="exportLink" style="margin-left:auto;">📥 Exportar JSON</a>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>ID</th><th>Caso</th><th>Predicción IA</th><th>Final</th><th>Conc.</th><th>Evaluador</th><th>Fecha</th><th></th></tr></thead>
+            <tbody id="dsTable"><tr><td colspan="8" style="color:var(--dim);">Sin etiquetas aún.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== MODELO ==================== -->
+  <section class="section" id="section-modelo">
+    <div class="panel">
+      <div class="panel-head">🧠 Modelo local <span class="badge b-blue" id="headStatus">verificando…</span></div>
+      <div class="panel-body">
+        <div class="kpi" style="max-width:520px;">
+          <span>Flujo de aprendizaje</span>
+          <p style="font-size:13px; margin-top:6px;">
+            Backbone ViT (placeholder ImageNet) → embeddings cacheados →
+            cabeza lineal 3 clases para imágenes + <b>MIL con atención</b>
+            (CLAM-lite) para láminas completas. Ambos se re-entrenan con tus
+            etiquetas. El backbone real de patología (UNI/Virchow) se enchufa
+            sin tocar el resto.
+          </p>
+        </div>
+        <div style="margin:14px 0;">
+          <button class="btn btn-primary" id="btnRetrain">🔁 Re-entrenar cabeza con el dataset</button>
+        </div>
+        <div class="panel" id="evalPanel" style="display:none;">
+          <div class="panel-head" style="font-size:13px;">📊 Evaluación honesta (split estratificado train/test)</div>
+          <div id="evalBody" style="padding:14px; overflow-x:auto;"></div>
+        </div>
+        <div class="panel" id="adminPanel" style="display:none; margin-top:14px;">
+          <div class="panel-head" style="font-size:13px;">🛡️ Administración (solo admin)</div>
+          <div style="padding:14px;" class="grid-2">
+            <div>
+              <label class="f">Crear usuario</label>
+              <input class="form-control" id="nuName" placeholder="Nombre completo">
+              <input class="form-control" id="nuUser" placeholder="Usuario">
+              <input class="form-control" id="nuPass" type="password" placeholder="Contraseña">
+              <select class="form-control" id="nuRole">
+                <option value="patologo">Patólogo/a</option>
+                <option value="admin">Administrador</option>
+              </select>
+              <button class="btn btn-sm btn-primary" id="btnCreateUser">+ Crear usuario</button>
+              <div id="usersList" style="margin-top:10px; font-size:12px; color:var(--dim);"></div>
+            </div>
+            <div>
+              <label class="f">Bitácora de auditoría</label>
+              <div id="auditList" style="font-size:12px; color:var(--dim); max-height:260px; overflow-y:auto;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="note">
+          <b>Qué es honesto aquí:</b> las métricas salen de un split que la
+          herramienta misma separa. Si el gap train/test supera 15pp se marca
+          como posible sobreajuste. Con pocas muestras la evaluación se omite
+          y se dice, no se finge.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FUNDAMENTO TEÓRICO ==================== -->
+  <section class="section" id="section-teoria">
+    <div class="panel">
+      <div class="panel-head">📖 Fundamento teórico <span class="badge b-amber">citas completas en REFERENCIAS.md</span></div>
+      <div class="panel-body grid-2">
+        <div>
+          <p style="font-size:13px; margin-bottom:8px; color:var(--dim);"><b>Histología y citología</b> (Ejes 1–3)</p>
+          <ul class="plain">
+            <li>Ross &amp; Pawlina · <i>Histología: texto y atlas</i> (8.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=Ross+Pawlina+histologia" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+            <li>Koss &amp; Melamed · <i>Diagnostic Cytology</i> (5.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=Koss+diagnostic+cytology" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+            <li>Bibbo &amp; Wilbur · <i>Comprehensive Cytopathology</i> (4.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=Bibbo+comprehensive+cytopathology" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+            <li>DeMay · <i>The Art &amp; Science of Cytopathology</i> (2.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=DeMay+cytopathology" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+          </ul>
+          <p style="font-size:13px; margin:12px 0 8px; color:var(--dim);"><b>Patología pulmonar</b> (Ejes 4–5, clases)</p>
+          <ul class="plain">
+            <li>WHO · <i>Thoracic Tumours</i> (5.ª ed., 2021) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=WHO+thoracic+tumours" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+            <li>Travis et al. · WHO Lung, Pleura, Thymus (4.ª ed., 2015) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=Travis+WHO+lung+pleura" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+            <li>Kumar, Abbas &amp; Aster · <i>Robbins y Cotran</i> (10.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=Robbins+Cotran+patologia" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+            <li>Spencer's Pathology of the Lung (6.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=Spencer+pathology+lung" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+          </ul>
+          <p style="font-size:13px; margin:12px 0 8px; color:var(--dim);"><b>Estadificación</b></p>
+          <ul class="plain">
+            <li>TNM 8.ª ed. (UICC 2017) · AJCC Staging Manual (8.ª ed.) <a href="https://catalogo.udd.cl/cgi-bin/koha/opac-search.pl?q=TNM+classification+malignant+tumours" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 UDD</a></li>
+          </ul>
+        </div>
+        <div>
+          <p style="font-size:13px; margin-bottom:8px; color:var(--dim);"><b>Patología computacional</b> (arquitectura)</p>
+          <ul class="plain">
+            <li>van der Laak et al. · <i>Deep learning in histopathology</i> (Nat Med 2021) <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Deep+learning+in+histopathology+path+to+the+clinic" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 PubMed</a></li>
+            <li>UNI (Nat Med 2024) · Virchow (Nat Med 2024) · Prov-GigaPath (Nature 2024) <a href="https://pubmed.ncbi.nlm.nih.gov/?term=pathology+foundation+model" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 PubMed</a></li>
+            <li>Lu et al. · <i>CLAM</i> (Nat Biomed Eng 2021) — base del MIL de la herramienta <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Data-efficient+weakly+supervised+computational+pathology" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 PubMed</a></li>
+          </ul>
+          <p style="font-size:13px; margin:12px 0 8px; color:var(--dim);"><b>Explicabilidad (XAI)</b></p>
+          <ul class="plain">
+            <li>Selvaraju et al. · <i>Grad-CAM</i> (ICCV 2017) <a href="https://arxiv.org/abs/1610.02391" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 arXiv</a></li>
+            <li>Ribeiro et al. · <i>LIME</i> (KDD 2016) <a href="https://arxiv.org/abs/1602.04938" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 arXiv</a></li>
+            <li>Molnar · <i>Interpretable Machine Learning</i> (2.ª ed., gratuito) <a href="https://christophm.github.io/interpretable-ml-book/" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 Web</a></li>
+          </ul>
+          <p style="font-size:13px; margin:12px 0 8px; color:var(--dim);"><b>Regulación</b></p>
+          <ul class="plain">
+            <li>FDA · <i>Clinical Decision Support Software</i> (2022) <a href="https://www.fda.gov/regulatory-information/search-fda-guidance-documents" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 FDA</a></li>
+            <li>IMDRF SaMD N10/N41 · MDR (UE) 2017/745 · ISO 14971 · IEC 62304 <a href="https://www.imdrf.org/" target="_blank" style="color:var(--primary-light); font-size:11px;">🔎 IMDRF</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="note" style="margin:0 18px 18px;">
+        🔎 Los libros enlazan al <b>catálogo Koha de la Biblioteca UDD</b>: al hacer clic,
+        el navegador busca el título; el acceso al contenido con licencia lo realiza
+        cada usuario con su sesión institucional. Ayuda:
+        <code style="color:var(--primary-light);">python tools/biblioteca.py "término"</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== ARQUITECTURA ==================== -->
+  <section class="section" id="section-arquitectura">
+    <div class="panel">
+      <div class="panel-head">🏗️ Arquitectura: el backend es el producto, la web es un cliente más</div>
+      <div class="panel-body">
+<pre>
+┌───────────────┬───────────────────────────┬──────────────────────────┐
+│  Web (esta)   │  Visor especializado      │  QuPath / Cytomine /     │
+│               │  OpenSeadragon · Kaibu    │  OMERO / LIS-PACS        │
+└───────┬───────┴────────────┬──────────────┴───────────┬──────────────┘
+        │                    │                          │
+        ▼                    ▼                          ▼
+     POST /api/analizar   GET heatmap_overlay_png      (misma API JSON)
+     POST /api/etiqueta    (overlay 1:1 sobre WSI)
+        │                    │
+        ▼                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Backend FastAPI (app/)                                       │
+│   foundation.py  ViT + embeddings + cabeza re-entrenable      │
+│   xai.py         heatmaps, 5 focos, overlays                  │
+│   storage.py     dataset.json + uploads/ + analysis/          │
+│   100% local · sin transmisión de datos de salud              │
+└──────────────────────────────────────────────────────────────┘
+</pre>
+      <p style="font-size:13px; color:var(--dim); margin-top:8px;">
+        La web se puede borrar y el sistema sigue funcionando por API. El visor
+        WSI especializado (pendiente en TODO.md) consumirá los mismos endpoints.
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== API ==================== -->
+  <section class="section" id="section-api">
+    <div class="panel">
+      <div class="panel-head">🔌 Endpoints</div>
+      <div class="panel-body" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><b>GET</b></td><td>/api/health</td><td>Estado + backend cargado</td></tr>
+            <tr><td><b>POST</b></td><td>/api/analizar</td><td>Subir imagen → predicción + heatmap + focos (cacheada)</td></tr>
+            <tr><td><b>POST</b></td><td>/api/analyze/{filename}</td><td>Analizar una imagen ya subida sin duplicarla</td></tr>
+            <tr><td><b>GET</b></td><td>/api/analysis/{filename}</td><td>Análisis cacheado de un caso</td></tr>
+            <tr><td><b>GET</b></td><td>/api/images</td><td>Worklist de casos</td></tr>
+            <tr><td><b>GET</b></td><td>/api/images/{filename}/thumb</td><td>Thumbnail para la worklist</td></tr>
+            <tr><td><b>POST</b></td><td>/api/etiqueta</td><td>Confirmar/corregir → dataset</td></tr>
+            <tr><td><b>DELETE</b></td><td>/api/dataset/{label_id}</td><td>Borrar una etiqueta</td></tr>
+            <tr><td><b>POST</b></td><td>/api/model/retrain</td><td>Re-entrenar cabeza (con evaluación honesta)</td></tr>
+            <tr><td><b>GET</b></td><td>/api/model</td><td>Estado de la cabeza</td></tr>
+            <tr><td><b>GET</b></td><td>/api/dataset</td><td>Etiquetas + estadísticas</td></tr>
+            <tr><td><b>GET</b></td><td>/api/dataset/export.json</td><td>Dataset completo</td></tr>
+            <tr><td><b>DELETE</b></td><td>/api/dataset</td><td>Vaciar dataset</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="container" style="border-top:none;">
+  © 2026 ADScope · El humano decide siempre; la IA solo señala dónde mirar.<br>
+  Backbone placeholder ImageNet · dataset en data/dataset.json · análisis en data/analysis/.
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- ==================== MODAL LOGIN ==================== -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <h2 style="text-align:center; margin-bottom:16px;">🔐 ADScope · Acceso</h2>
+    <input class="form-control" id="loginUser" placeholder="Usuario">
+    <input class="form-control" id="loginPass" type="password" placeholder="Contraseña">
+    <button class="btn btn-primary" style="width:100%;" id="loginBtn">Entrar</button>
+    <p style="font-size:11px; color:var(--dim); margin-top:10px; text-align:center;">
+      Primer uso: usuario <b>admin</b> · contraseña <b>admin123</b> (cámbiala en la API:
+      pide al administrador). Todas las acciones quedan en la bitácora de auditoría.
+    </p>
+    <button class="btn" style="width:100%; margin-top:8px;" id="cancelLoginBtn">Cancelar</button>
+  </div>
+</div>
+
+<script src="vendor/openseadragon.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

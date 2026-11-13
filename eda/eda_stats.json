@@ -1,0 +1,24 @@
+{
+  "dataset": "LC25000 (subconjunto pulmón)",
+  "n_total": 120,
+  "clases": {
+    "Tejido pulmonar benigno": {
+      "n": 40,
+      "dimensiones": "768×768 px",
+      "brillo_medio": 185.6,
+      "contraste_std": 32.3
+    },
+    "Adenocarcinoma": {
+      "n": 40,
+      "dimensiones": "768×768 px",
+      "brillo_medio": 172.7,
+      "contraste_std": 34.3
+    },
+    "Carcinoma escamoso": {
+      "n": 40,
+      "dimensiones": "768×768 px",
+      "brillo_medio": 164.4,
+      "contraste_std": 30.0
+    }
+  }
+}

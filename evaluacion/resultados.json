@@ -1,0 +1,77 @@
+{
+  "ok": true,
+  "samples": 120,
+  "by_class": {
+    "Adenocarcinoma": 40,
+    "Carcinoma escamoso": 40,
+    "Tejido normal": 40
+  },
+  "epochs": 300,
+  "final_loss": 0.01159,
+  "train_accuracy_all": 1.0,
+  "evaluacion": {
+    "metodo": "split estratificado 75/25 · seed 42",
+    "train": {
+      "n": 90,
+      "accuracy": 1.0
+    },
+    "test": {
+      "n": 30,
+      "accuracy": 0.967,
+      "confusion_matrix": [
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          1,
+          9,
+          0
+        ],
+        [
+          0,
+          0,
+          10
+        ]
+      ],
+      "class_names": [
+        "Adenocarcinoma",
+        "Carcinoma escamoso",
+        "Tejido normal"
+      ],
+      "per_class": [
+        {
+          "class": "Adenocarcinoma",
+          "tp": 10,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.909,
+          "sensibilidad_recall": 1.0,
+          "f1": 0.952
+        },
+        {
+          "class": "Carcinoma escamoso",
+          "tp": 9,
+          "fp": 0,
+          "fn": 1,
+          "precision": 1.0,
+          "sensibilidad_recall": 0.9,
+          "f1": 0.947
+        },
+        {
+          "class": "Tejido normal",
+          "tp": 10,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "sensibilidad_recall": 1.0,
+          "f1": 1.0
+        }
+      ]
+    }
+  },
+  "tiempo_seg": 10.5,
+  "dataset": "LC25000 subconjunto pulmón · 40/40/40",
+  "nota": "Backbone placeholder (ImageNet): métricas reales del pipeline, no validez clínica del modelo."
+}

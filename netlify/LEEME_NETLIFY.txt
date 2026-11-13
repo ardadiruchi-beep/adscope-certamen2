@@ -1,0 +1,29 @@
+ADScope — Paquete estático para Netlify (SOLO INTERFAZ)
+
+🔒 Contraseña de la pantalla de acceso: adscope2026
+   (para cambiarla: regenerar con  tools/build_netlify_zip.py "nueva_clave")
+
+⚠️ IMPORTANTE (honestidad técnica):
+Este paquete contiene ÚNICAMENTE la interfaz web. Netlify aloja archivos
+estáticos y NO puede ejecutar el backend Python (FastAPI). Por lo tanto
+aquí NO funcionan: la IA (heatmaps/focos), el dataset, el login real ni
+el análisis de imágenes.
+
+La pantalla de contraseña es una CORTINA DE PRESENTACIÓN, no seguridad
+real: en estático el JavaScript es legible. La seguridad real de ADScope
+vive en el backend (login con roles + auditoría).
+
+Cómo desplegar:
+1. Sube la carpeta descomprimida a Netlify (o arrástrala a su dashboard).
+2. La pantalla de acceso pide la contraseña; la app abre en app.html.
+
+Contenido del paquete:
+- index.html → cortina de contraseña (funciona en cualquier hosting estático)
+- app.html  → la aplicación (requiere backend para funcionar de verdad)
+- login.html → acceso con usuario/contraseña REAL (solo funciona si el
+  paquete se sirve junto al backend FastAPI; en Netlify dará "sin conexión")
+
+Para la aplicación COMPLETA (con backend), las opciones reales son:
+- Render (render.com): soporta FastAPI con el Dockerfile incluido
+- Railway (railway.app): despliegue desde el repositorio
+- Servidor de la clínica (on-premise): docker compose up -d --build
